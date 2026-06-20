@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>管理员后台</title>
+    <style>
+      body { margin: 0; background: #171a1f; color: #f4f1e8; font-family: Arial, "Microsoft YaHei", sans-serif; }
+      main { max-width: 1000px; margin: 0 auto; padding: 24px; }
+      .panel { border: 1px solid #343a46; background: #20252d; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+      input { padding: 10px 12px; margin: 6px; color: #f4f1e8; background: #151920; border: 1px solid #2c3340; border-radius: 6px; }
+      button { border: 0; border-radius: 6px; padding: 10px 14px; color: #121417; background: #f4f1e8; font-weight: 700; cursor: pointer; margin: 4px; }
+      .primary { background: #79d279; } .danger { background: #ff7b7b; } .muted { color: #aeb6c2; }
+      table { width: 100%; border-collapse: collapse; background: #151920; }
+      th, td { border: 1px solid #2c3340; padding: 10px; text-align: left; }
+      th { color: #ffd166; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>管理员后台</h1>
+      <p><a class="muted" href="/">返回游戏</a></p>
+      <section id="loginPanel" class="panel">
+        <h2>管理员登录</h2>
+        <input id="usernameInput" placeholder="管理员账号" value="admin" />
+        <input id="passwordInput" type="password" placeholder="管理员密码" />
+        <button id="loginButton" class="primary">登录</button>
+        <p id="messageText" class="muted"></p>
+      </section>
+      <section id="adminPanel" class="panel" style="display:none">
+        <h2>账号管理</h2>
+        <button id="refreshButton" class="primary">刷新列表</button>
+        <table>
+          <thead><tr><th>ID</th><th>账号</th><th>角色</th><th>玩家ID</th><th>等级</th><th>层数</th><th>战力</th><th>灵石</th><th>操作</th></tr></thead>
+          <tbody id="userTable"></tbody>
+        </table>
+      </section>
+    </main>
+    <script src="./admin.js"></script>
+  </body>
+</html>
