@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>砍树刷装备</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #171a1f; color: #f4f1e8; font-family: Arial, "Microsoft YaHei", sans-serif; }
+      main { max-width: 1080px; margin: 0 auto; padding: 24px; }
+      h1, h2 { margin: 0 0 12px; }
+      .hidden { display: none !important; }
+      .muted { color: #aeb6c2; }
+      .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .panel { border: 1px solid #343a46; background: #20252d; border-radius: 8px; padding: 16px; }
+      .auth-panel { max-width: 420px; margin: 0 auto 18px; }
+      input { width: 100%; margin: 8px 0; padding: 11px 12px; color: #f4f1e8; background: #151920; border: 1px solid #2c3340; border-radius: 6px; }
+      .wide { grid-column: 1 / -1; }
+      .top-state, .stats, .equipment-grid { display: grid; gap: 10px; }
+      .top-state { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+      .stats, .equipment-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .top-state p, .stats div, .equipment-card, .drop-card { margin: 0; padding: 10px; background: #151920; border: 1px solid #2c3340; border-radius: 6px; }
+      .power-number { display: block; color: #ffd166; font-size: 48px; font-weight: 800; line-height: 1; margin: 12px 0; }
+      .xp-bar { height: 10px; overflow: hidden; border: 1px solid #2c3340; border-radius: 999px; background: #10151c; }
+      .xp-fill { width: 0; height: 100%; background: linear-gradient(90deg, #79d279, #ffd166); }
+      .buttons, .resource-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; }
+      button { border: 0; border-radius: 6px; padding: 11px 16px; color: #121417; background: #f4f1e8; font-weight: 700; cursor: pointer; }
+      button:disabled { cursor: not-allowed; opacity: 0.45; }
+      .primary { background: #79d279; } .danger { background: #ff7b7b; } .choice { background: #82b1ff; } .buy { background: #ffd166; }
+      .gain { color: #79d279; } .loss { color: #ff7b7b; }
+      .equipment-card span { display: block; color: #aeb6c2; font-size: 14px; margin-bottom: 6px; }
+      .equipment-card strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .quality-normal { border-color: #6f7783; } .quality-rare { border-color: #70a7ff; } .quality-epic { border-color: #c083ff; }
+      .quality-legendary { border-color: #ffd166; box-shadow: 0 0 18px rgba(255, 209, 102, 0.25); }
+      .drop-card { margin-top: 10px; line-height: 1.65; }
+      .log { min-height: 220px; max-height: 320px; overflow: auto; margin: 0; padding: 12px 12px 12px 32px; background: #0f1217; border: 1px solid #2c3340; border-radius: 6px; font-family: Consolas, monospace; line-height: 1.65; }
+      .hot-log { color: #ffd166; font-weight: 800; }
+      .shake { animation: shake 0.22s ease-in-out; }
+      body.flash { animation: flash 0.7s ease-out; }
+      @keyframes flash { 0% { filter: brightness(1.8); } 100% { filter: brightness(1); } }
+      @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 50% { transform: translateX(4px); } 75% { transform: translateX(-2px); } }
+      .battle-overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 18px; background: rgba(5, 8, 12, 0.72); }
+      .battle-modal { width: min(420px, 100%); border: 1px solid #ff7b7b; border-radius: 8px; padding: 22px; text-align: center; background: #20252d; box-shadow: 0 18px 80px rgba(0,0,0,.45), 0 0 28px rgba(255,123,123,.25); animation: battleShake .62s ease-in-out infinite; }
+      .battle-modal.win { border-color: #79d279; box-shadow: 0 18px 80px rgba(0,0,0,.45), 0 0 32px rgba(121,210,121,.35); }
+      .battle-modal.lose { border-color: #ff7b7b; }
+      .battle-countdown { margin: 12px 0; color: #ffd166; font-size: 64px; font-weight: 900; line-height: 1; }
+      .battle-status { min-height: 28px; color: #aeb6c2; font-size: 18px; font-weight: 700; }
+      .battle-result { min-height: 32px; margin-top: 12px; font-size: 22px; font-weight: 900; }
+      @keyframes battleShake { 0%,100% { transform: translate(0,0); } 40% { transform: translate(2px,-1px); } 80% { transform: translate(1px,2px); } }
+      @media (max-width: 760px) { main { padding: 14px; } .layout { grid-template-columns: 1fr; } .wide { grid-column: auto; } .top-state { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>砍树刷装备 MVP</h1>
+      <p class="muted">砍树掉装备，手动选择装备或出售，觉得有机会就挑战 Boss。</p>
+      <section id="authPanel" class="panel auth-panel">
+        <h2>登录 / 注册</h2>
+        <input id="usernameInput" placeholder="账号" autocomplete="username" />
+        <input id="passwordInput" type="password" placeholder="密码（至少 6 位）" autocomplete="current-password" />
+        <div class="buttons"><button id="loginButton" class="primary">登录</button><button id="registerButton">注册</button><a class="muted" href="/admin.html">管理员入口</a></div>
+        <p id="authMessage" class="muted"></p>
+      </section>
+      <section id="gamePanel" class="layout hidden">
+        <div class="panel">
+          <h2>当前状态</h2>
+          <div class="top-state">
+            <p>层数 <strong id="floorText">1</strong></p><p>Lv <strong id="levelText">1</strong></p><p>树Lv <strong id="treeLevelText">1</strong></p><p>Boss <strong id="bossPowerText">0</strong></p><p>状态 <strong id="emotionText">稳定</strong></p>
+          </div>
+          <span class="power-number" id="powerText">0</span>
+          <div><span>经验 <strong id="xpText">0 / 0</strong></span><div class="xp-bar"><div id="xpFill" class="xp-fill"></div></div></div>
+          <div class="resource-row"><span>账号：<strong id="accountText">-</strong></span><span>伐木令：<strong id="tokenText">0/0</strong></span><span>灵石：<strong id="coinText">0</strong></span><button id="buyXpButton" class="buy">购买经验</button><button id="logoutButton">退出登录</button></div>
+          <div id="playerStats" class="stats"></div>
+          <div class="buttons"><button id="chopButton" class="primary">砍树</button><button id="bossButton" class="danger">挑战 Boss</button></div>
+        </div>
+        <div class="panel">
+          <h2>装备</h2><p class="muted">已装备</p><div id="equipmentGrid" class="equipment-grid"></div><p class="muted">新掉落装备</p><div id="dropCard" class="drop-card">无装备</div><p id="compareText" class="muted">砍树后会显示新装备对比。</p><div class="buttons"><button id="equipButton" class="choice" disabled>装备</button><button id="sellButton" disabled>出售</button></div>
+        </div>
+        <div class="panel wide"><h2>日志</h2><ol id="logList" class="log"></ol></div>
+      </section>
+    </main>
+    <div id="battleOverlay" class="battle-overlay hidden"><div id="battleModal" class="battle-modal"><h2 id="battleTitle">Boss 战</h2><div id="battleCountdown" class="battle-countdown">3</div><div id="battleStatus" class="battle-status">战斗中...</div><div id="battleResult" class="battle-result"></div></div></div>
+    <script src="./main.js"></script>
+  </body>
+</html>
