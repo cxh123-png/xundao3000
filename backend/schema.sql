@@ -1,0 +1,56 @@
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'player',
+  player_id INTEGER NULL,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS players (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NULL,
+  level INTEGER NOT NULL,
+  exp INTEGER NOT NULL,
+  attack INTEGER NOT NULL,
+  defense INTEGER NOT NULL,
+  hp INTEGER NOT NULL,
+  gold INTEGER NOT NULL,
+  floor INTEGER NOT NULL,
+  power INTEGER NOT NULL,
+  chop_tokens INTEGER NOT NULL DEFAULT 10,
+  max_chop_tokens INTEGER NOT NULL DEFAULT 20,
+  token_regen_seconds INTEGER NOT NULL DEFAULT 10,
+  last_token_at INTEGER NOT NULL,
+  charge INTEGER NOT NULL DEFAULT 0,
+  risk_break_at INTEGER NULL,
+  floor_drop_count INTEGER NOT NULL DEFAULT 0,
+  floor_power_drop_used INTEGER NOT NULL DEFAULT 0,
+  last_drop_diff_pct INTEGER NOT NULL DEFAULT 0,
+  emotion_state TEXT NOT NULL DEFAULT '稳定发育',
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_players_user ON players(user_id);
+
+CREATE TABLE IF NOT EXISTS items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  player_id INTEGER NOT NULL,
+  slot TEXT NOT NULL,
+  name TEXT NOT NULL,
+  quality INTEGER NOT NULL,
+  attack INTEGER NOT NULL,
+  defense INTEGER NOT NULL,
+  hp INTEGER NOT NULL,
+  is_equipped INTEGER NOT NULL,
+  power_band TEXT NULL,
+  is_legendary INTEGER NOT NULL DEFAULT 0,
+  is_overpowered INTEGER NOT NULL DEFAULT 0,
+  is_godlike INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_items_player ON items(player_id);
