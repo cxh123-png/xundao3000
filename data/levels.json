@@ -1,0 +1,24 @@
+{
+  "initialLevel": 1,
+  "initialXp": 0,
+  "earlyLevelLimit": 20,
+  "earlyBase": 40,
+  "earlyScale": 35,
+  "earlyExponent": 1.18,
+  "lateScale": 230,
+  "lateExponent": 1.72,
+  "dropXpBase": 6,
+  "buyXpCost": 30,
+  "buyXpAmount": 50,
+  "treeLevelDivisor": 2,
+  "baseStats": {
+    "attack": 10,
+    "defense": 5,
+    "hp": 100
+  },
+  "statsPerLevel": {
+    "attack": 3,
+    "defense": 2,
+    "hp": 12
+  }
+}
