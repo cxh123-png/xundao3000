@@ -1,0 +1,13 @@
+{
+  "name": "tree-loot-boss-game",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start": "node backend/server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "sql.js": "^1.11.0"
+  }
+}
