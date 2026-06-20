@@ -1,0 +1,43 @@
+{
+  "slots": [
+    { "key": "weapon", "label": "武器" },
+    { "key": "armor", "label": "护甲" },
+    { "key": "amulet", "label": "护符" },
+    { "key": "boots", "label": "鞋子" }
+  ],
+  "qualities": {
+    "normal": {
+      "label": "普通",
+      "powerMultiplier": [1, 1],
+      "names": ["粗木", "旧皮", "石柄", "藤木"]
+    },
+    "rare": {
+      "label": "稀有",
+      "powerMultiplier": [1.5, 1.5],
+      "names": ["青锋", "铁纹", "灵木", "破山"]
+    },
+    "epic": {
+      "label": "高级",
+      "powerMultiplier": [3, 3],
+      "names": ["裂地", "玄铁", "赤焰", "龙纹"]
+    },
+    "legendary": {
+      "label": "神话",
+      "powerMultiplier": [5, 5],
+      "names": ["天命", "无双", "太古", "破界"]
+    }
+  },
+  "slotNames": {
+    "weapon": ["斧", "短刀", "长剑"],
+    "armor": ["皮甲", "铁甲", "战衣"],
+    "amulet": ["护符", "玉佩", "木牌"],
+    "boots": ["草鞋", "战靴", "云履"]
+  },
+  "powerBands": [
+    { "key": "god", "chance": 0.001 },
+    { "key": "strong", "chance": 0.009 },
+    { "key": "normal", "chance": 0.09 },
+    { "key": "weak", "chance": 0.9 }
+  ],
+  "sellCoin": 10
+}
