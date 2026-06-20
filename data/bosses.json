@@ -1,0 +1,15 @@
+{
+  "earlyFloorLimit": 20,
+  "earlyMinStart": 0.45,
+  "earlyMinStep": 0.01,
+  "earlyMaxStart": 0.82,
+  "earlyMaxStep": 0.012,
+  "lateMinStart": 0.75,
+  "lateMinStep": 0.012,
+  "lateMinCap": 1.25,
+  "lateMaxStart": 1.12,
+  "lateMaxStep": 0.045,
+  "lateMaxCap": 2.4,
+  "playerPowerVariance": [0.85, 1.25],
+  "winRewardTokens": 3
+}
