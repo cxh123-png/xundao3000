@@ -29,8 +29,36 @@ function getNextLevelXp(level) {
   );
 }
 
+function getNextTreeLevelXp(level) {
+  return Math.floor(levels.treeXpBase + levels.treeXpScale * Math.pow(level, levels.treeXpExponent));
+}
+
 function getTreeLevel(player) {
-  return Math.max(1, player.level / levels.treeLevelDivisor);
+  return Math.max(1, player.treeLevel || levels.initialTreeLevel || 1);
+}
+
+function getMaxChopTokens(treeLevel) {
+  const level = Math.max(1, treeLevel || levels.initialTreeLevel || 1);
+  const base = levels.baseMaxChopTokens || 20;
+  const growth = levels.maxChopTokensPerTreeLevel || 0;
+  const cap = levels.maxChopTokensCap || Infinity;
+  return Math.min(cap, base + (level - 1) * growth);
+}
+
+function normalizeChances(chances) {
+  const total = Object.values(chances).reduce((sum, value) => sum + value, 0);
+  return Object.fromEntries(Object.entries(chances).map(([key, value]) => [key, value / total]));
+}
+
+function getDropQualityChances(treeLevel, riskLevel = 1) {
+  const level = Math.max(1, treeLevel || 1);
+  const riskBonus = Math.max(0, riskLevel - 1);
+  const legendary = clamp(0.002 + level * 0.0012 + riskBonus * 0.018, 0.002, 0.16);
+  const epic = clamp(0.025 + level * 0.006 + riskBonus * 0.055, 0.025, 0.34);
+  const rare = clamp(0.15 + level * 0.008 + riskBonus * 0.035, 0.15, 0.42);
+  const normal = Math.max(0.08, 1 - legendary - epic - rare);
+
+  return normalizeChances({ normal, rare, epic, legendary });
 }
 
 function getBossFactorRange(floor) {
@@ -68,7 +96,10 @@ module.exports = {
   clamp,
   calculatePower,
   getNextLevelXp,
+  getNextTreeLevelXp,
   getTreeLevel,
+  getMaxChopTokens,
+  getDropQualityChances,
   getBossFactorRange,
   getDisplayedBossPower,
   getWinChance
