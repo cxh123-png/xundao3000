@@ -18,35 +18,91 @@ function rollBreakAt() {
 function rollPowerBand() {
   const roll = Math.random();
   let cursor = 0;
+
   for (const band of items.powerBands) {
     cursor += band.chance;
-    if (roll < cursor) return band.key;
+    if (roll < cursor) {
+      return band.key;
+    }
   }
+
   return "weak";
 }
 
-function pickQualityByRisk(riskLevel, forceLegendary) {
-  if (forceLegendary) return "legendary";
-  const tier = Math.max(1, Math.min(5, riskLevel + formula.randomInt(-1, 1)));
-  if (tier <= 1) return "normal";
-  if (tier === 2) return Math.random() < 0.8 ? "rare" : "normal";
-  if (tier === 3) return Math.random() < 0.75 ? "epic" : "rare";
-  return Math.random() < 0.28 + riskLevel * 0.08 ? "legendary" : "epic";
+function qualityRank(quality) {
+  return ["normal", "rare", "epic", "legendary"].indexOf(quality);
 }
 
-function createItemPowerTarget(player, slot, quality, forceOverpowered, powerBand) {
+function maxQuality(a, b) {
+  return qualityRank(a) >= qualityRank(b) ? a : b;
+}
+
+function getMinimumQualityByRisk(riskLevel) {
+  if (riskLevel >= 5) {
+    return Math.random() < 0.7 ? "legendary" : "epic";
+  }
+
+  if (riskLevel >= 4) {
+    return Math.random() < 0.35 ? "legendary" : "epic";
+  }
+
+  if (riskLevel >= 3) {
+    return "epic";
+  }
+
+  if (riskLevel >= 2) {
+    return "rare";
+  }
+
+  return "normal";
+}
+
+function pickQualityByRisk(player, riskLevel, forceLegendary) {
+  if (forceLegendary) {
+    return "legendary";
+  }
+
+  const chances = formula.getDropQualityChances(player.treeLevel, riskLevel);
+  const roll = Math.random();
+  if (roll < chances.legendary) return "legendary";
+  if (roll < chances.legendary + chances.epic) return "epic";
+  const rolledQuality = roll < chances.legendary + chances.epic + chances.rare ? "rare" : "normal";
+  return maxQuality(rolledQuality, getMinimumQualityByRisk(riskLevel));
+}
+
+function rollItemLevel(playerLevel) {
+  const level = Math.max(1, playerLevel || 1);
+  if (Math.random() < 0.005) {
+    return level + formula.randomInt(1, 2);
+  }
+
+  if (level <= 1) {
+    return 1;
+  }
+
+  const floor = Math.max(1, level - formula.randomInt(0, 2));
+  return formula.randomInt(floor, level);
+}
+
+function createItemPowerTarget(player, slot, quality, forceOverpowered, powerBand, itemLevel) {
   const qualityConfig = items.qualities[quality];
   const currentSlotPower = playerEngine.getEquipmentPower(player.equipment[slot]);
   const averagePower = playerEngine.getAverageEquipmentPower(player);
   const treeLevel = formula.getTreeLevel(player);
+  const itemLevelScale = 1 + Math.max(0, itemLevel - 1) * 0.08;
   const lateLevelScale = 1 + Math.max(0, player.level - 20) * 0.08;
   const lateFloorScale = 1 + Math.max(0, player.floor - 20) * 0.06;
-  const floorBase = Math.max(12, Math.floor(18 * Math.pow(player.floor, 1.18) * (1 + treeLevel * 0.08) * lateLevelScale * lateFloorScale));
+  const floorBase = Math.max(
+    12,
+    Math.floor(18 * Math.pow(player.floor, 1.18) * (1 + treeLevel * 0.08) * itemLevelScale * lateLevelScale * lateFloorScale)
+  );
   const qualityMult = formula.randomFloat(qualityConfig.powerMultiplier[0], qualityConfig.powerMultiplier[1]);
   let target = floorBase * qualityMult * formula.randomFloat(0.85, 1.25);
 
   if (powerBand === "weak") {
-    target = currentSlotPower > 0 ? currentSlotPower * formula.randomFloat(0.35, 0.9) : target * formula.randomFloat(0.45, 0.8);
+    target = currentSlotPower > 0
+      ? currentSlotPower * formula.randomFloat(0.35, 0.9)
+      : target * formula.randomFloat(0.45, 0.8);
   }
 
   if (powerBand === "strong") {
@@ -85,6 +141,7 @@ function splitPowerToStats(targetPower, quality) {
   const defenseShare = formula.randomFloat(0.18, 0.32);
   const hpShare = Math.max(0.15, 1 - attackShare - defenseShare);
   const burst = quality === "legendary" ? formula.randomFloat(1.05, 1.25) : formula.randomFloat(0.9, 1.1);
+
   return {
     attack: Math.max(1, Math.floor((targetPower * attackShare * burst) / 1.2)),
     defense: Math.max(1, Math.floor(targetPower * defenseShare * burst)),
@@ -95,18 +152,22 @@ function splitPowerToStats(targetPower, quality) {
 function generateItem(player, riskLevel) {
   const powerBand = rollPowerBand();
   const forceOverpowered = !player.floorPowerDropUsed && (player.floorDropCount >= 6 || Math.random() < 0.12);
-  let quality = pickQualityByRisk(riskLevel, false);
-  if (powerBand === "god") quality = "legendary";
+  let quality = pickQualityByRisk(player, riskLevel, false);
+  if (powerBand === "god") {
+    quality = "legendary";
+  }
 
   const slot = pick(items.slots).key;
   const qualityConfig = items.qualities[quality];
-  const targetPower = createItemPowerTarget(player, slot, quality, forceOverpowered || powerBand === "god" || quality === "legendary", powerBand);
+  const itemLevel = rollItemLevel(player.level);
+  const targetPower = createItemPowerTarget(player, slot, quality, forceOverpowered || powerBand === "god" || quality === "legendary", powerBand, itemLevel);
   const stats = splitPowerToStats(targetPower, quality);
   const name = `${pick(qualityConfig.names)}·${pick(items.slotNames[slot])}`;
 
   return {
     name,
     slot,
+    itemLevel,
     attack: stats.attack,
     defense: stats.defense,
     hp: stats.hp,
@@ -127,7 +188,9 @@ function refreshChopTokens(player) {
 
   const elapsed = Math.floor((Date.now() - player.lastTokenAt) / 1000);
   const gained = Math.floor(elapsed / player.tokenRegenSeconds);
-  if (gained <= 0) return 0;
+  if (gained <= 0) {
+    return 0;
+  }
 
   const before = player.chopTokens;
   player.chopTokens = Math.min(player.maxChopTokens, player.chopTokens + gained);
@@ -138,23 +201,33 @@ function refreshChopTokens(player) {
 function chop(player) {
   refreshChopTokens(player);
 
-  if (player.pendingLoot) return { item: player.pendingLoot, gold: 0, log: "先处理掉落", revealed: true };
-  if (player.chopTokens <= 0) return { item: null, gold: 0, log: "伐木令不足", revealed: false };
+  if (player.pendingLoot) {
+    return { item: player.pendingLoot, gold: 0, log: "先处理掉落", revealed: true };
+  }
 
-  player.chopTokens -= 1;
+  if (!player.riskBreakAt && player.chopTokens <= 0) {
+    return { item: null, gold: 0, log: "伐木令不足", revealed: false };
+  }
 
   if (!player.riskBreakAt) {
+    player.chopTokens -= 1;
     player.floorDropCount += 1;
     player.riskBreakAt = rollBreakAt();
     player.charge = 0;
   }
 
   player.charge += 1;
+  playerEngine.addXp(player, levels.chopPlayerXp || 1);
   player.emotionState = player.charge >= 4 ? "赌狗模式" : player.charge >= 2 ? "危险边缘" : "稳定发育";
   console.log(`[sfx] chop risk ${player.charge}`);
 
   if (player.charge < player.riskBreakAt) {
-    return { item: null, gold: 0, log: player.charge >= 3 ? "灵光一闪" : "木屑飞溅", revealed: false };
+    return {
+      item: null,
+      gold: 0,
+      log: player.charge >= 3 ? "✨ 灵光一闪" : "木屑飞溅",
+      revealed: false
+    };
   }
 
   const item = generateItem(player, player.charge);
@@ -163,9 +236,11 @@ function chop(player) {
   player.lastDropDiffPct = currentPower > 0 ? Math.round(((newPower - currentPower) / currentPower) * 100) : 100;
   player.pendingLoot = item;
   player.riskBreakAt = null;
-  playerEngine.addXp(player, levels.dropXpBase + formula.getTreeLevel(player));
+  playerEngine.addXp(player, levels.revealPlayerXp || 3);
 
-  if (item.overpowered && player.lastDropDiffPct >= 50) player.floorPowerDropUsed = true;
+  if (item.overpowered && player.lastDropDiffPct >= 50) {
+    player.floorPowerDropUsed = true;
+  }
 
   if (item.godlike) {
     player.emotionState = "爆发期";
@@ -176,12 +251,12 @@ function chop(player) {
   if (item.legendary) {
     player.emotionState = "爆发期";
     console.log("[sfx] legendary");
-    return { item, gold: 0, log: "神话装备掉落！！", revealed: true };
+    return { item, gold: 0, log: "🔥🔥 神话装备掉落！！", revealed: true };
   }
 
   if (item.quality === "epic") {
     player.emotionState = "危险边缘";
-    return { item, gold: 0, log: "高级装备！", revealed: true };
+    return { item, gold: 0, log: "✨ 高级装备！", revealed: true };
   }
 
   player.emotionState = player.lastDropDiffPct >= 0 ? "稳定发育" : "危险边缘";
