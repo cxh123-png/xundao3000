@@ -49,6 +49,16 @@ function persistDb(database) {
   fs.writeFileSync(dbPath, Buffer.from(database.export()));
 }
 
+function ensureColumn(database, tableName, columnName, definition) {
+  const info = database.exec(`PRAGMA table_info(${tableName})`);
+  const rows = info[0] ? info[0].values : [];
+  const hasColumn = rows.some((row) => row[1] === columnName);
+
+  if (!hasColumn) {
+    database.run(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
+  }
+}
+
 function readRows(statement, params) {
   const rows = [];
   statement.bind(params);
@@ -90,6 +100,9 @@ async function initSchema() {
   const schemaPath = path.join(__dirname, "schema.sql");
   const sql = fs.readFileSync(schemaPath, "utf8");
   database.run(sql);
+  ensureColumn(database, "players", "tree_level", "INTEGER NOT NULL DEFAULT 1");
+  ensureColumn(database, "players", "tree_exp", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn(database, "items", "item_level", "INTEGER NOT NULL DEFAULT 1");
   persistDb(database);
 }
 
