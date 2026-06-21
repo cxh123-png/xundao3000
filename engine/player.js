@@ -15,9 +15,12 @@ function createPlayer() {
     level: levels.initialLevel,
     xp: levels.initialXp,
     nextXp: formula.getNextLevelXp(levels.initialLevel),
+    treeLevel: levels.initialTreeLevel,
+    treeXp: levels.initialTreeXp,
+    treeNextXp: formula.getNextTreeLevelXp(levels.initialTreeLevel),
     coins: 0,
     chopTokens: 10,
-    maxChopTokens: 20,
+    maxChopTokens: formula.getMaxChopTokens(levels.initialTreeLevel),
     tokenRegenSeconds: 10,
     lastTokenAt: Date.now(),
     charge: 0,
@@ -26,7 +29,7 @@ function createPlayer() {
     floorPowerDropUsed: false,
     pendingLoot: null,
     lastDropDiffPct: 0,
-    emotionState: "稳定发育",
+    emotionState: "绋冲畾鍙戣偛",
     equipment: createEmptyEquipment()
   };
 
@@ -45,7 +48,10 @@ function recalculateStats(player) {
 
   items.slots.forEach((slot) => {
     const item = player.equipment[slot.key];
-    if (!item) return;
+    if (!item) {
+      return;
+    }
+
     totals.attack += item.attack;
     totals.defense += item.defense;
     totals.hp += item.hp;
@@ -55,6 +61,8 @@ function recalculateStats(player) {
   player.defense = totals.defense;
   player.hp = totals.hp;
   player.power = formula.calculatePower(totals);
+  player.maxChopTokens = formula.getMaxChopTokens(player.treeLevel);
+  player.chopTokens = Math.min(player.chopTokens, player.maxChopTokens);
   return player;
 }
 
@@ -73,6 +81,22 @@ function addXp(player, amount) {
   return leveled;
 }
 
+function addTreeXp(player, amount) {
+  let leveled = 0;
+  player.treeXp += Math.floor(amount);
+
+  while (player.treeXp >= player.treeNextXp) {
+    player.treeXp -= player.treeNextXp;
+    player.treeLevel += 1;
+    leveled += 1;
+    player.treeNextXp = formula.getNextTreeLevelXp(player.treeLevel);
+  }
+
+  player.maxChopTokens = formula.getMaxChopTokens(player.treeLevel);
+  player.chopTokens = Math.min(player.chopTokens, player.maxChopTokens);
+  return leveled;
+}
+
 function equip(player, item) {
   player.equipment[item.slot] = item;
   player.pendingLoot = null;
@@ -82,7 +106,9 @@ function equip(player, item) {
 }
 
 function sellPending(player) {
-  if (!player.pendingLoot) return null;
+  if (!player.pendingLoot) {
+    return null;
+  }
 
   const sold = player.pendingLoot;
   player.pendingLoot = null;
@@ -92,21 +118,33 @@ function sellPending(player) {
   return sold;
 }
 
-function buyXp(player) {
-  if (player.coins < levels.buyXpCost) return false;
-  player.coins -= levels.buyXpCost;
-  addXp(player, levels.buyXpAmount);
+function buyTreeXp(player) {
+  if (player.coins < levels.buyTreeXpCost) {
+    return false;
+  }
+
+  player.coins -= levels.buyTreeXpCost;
+  addTreeXp(player, levels.buyTreeXpAmount);
   return true;
 }
 
 function getEquipmentPower(item) {
-  if (!item) return 0;
+  if (!item) {
+    return 0;
+  }
+
   return formula.calculatePower(item);
 }
 
 function getAverageEquipmentPower(player) {
-  const equipped = items.slots.map((slot) => player.equipment[slot.key]).filter(Boolean);
-  if (equipped.length === 0) return Math.max(1, player.power);
+  const equipped = items.slots
+    .map((slot) => player.equipment[slot.key])
+    .filter(Boolean);
+
+  if (equipped.length === 0) {
+    return Math.max(1, player.power);
+  }
+
   const total = equipped.reduce((sum, item) => sum + getEquipmentPower(item), 0);
   return Math.max(1, Math.floor(total / equipped.length));
 }
@@ -127,7 +165,10 @@ function toPublicPlayer(player) {
     level: player.level,
     xp: player.xp,
     nextXp: player.nextXp,
-    treeLevel: formula.getTreeLevel(player),
+    treeLevel: player.treeLevel,
+    treeXp: player.treeXp,
+    treeNextXp: player.treeNextXp,
+    dropQualityChances: formula.getDropQualityChances(player.treeLevel),
     coins: player.coins,
     chopTokens: player.chopTokens,
     maxChopTokens: player.maxChopTokens,
@@ -144,8 +185,10 @@ function toPublicPlayer(player) {
     pendingComparison,
     lastDropDiffPct: player.lastDropDiffPct,
     slots: items.slots,
-    buyXpCost: levels.buyXpCost,
-    buyXpAmount: levels.buyXpAmount
+    buyTreeXpCost: levels.buyTreeXpCost,
+    buyTreeXpAmount: levels.buyTreeXpAmount,
+    buyXpCost: levels.buyTreeXpCost,
+    buyXpAmount: levels.buyTreeXpAmount
   };
 }
 
@@ -153,9 +196,10 @@ module.exports = {
   createPlayer,
   recalculateStats,
   addXp,
+  addTreeXp,
   equip,
   sellPending,
-  buyXp,
+  buyTreeXp,
   getEquipmentPower,
   getAverageEquipmentPower,
   toPublicPlayer
