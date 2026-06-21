@@ -140,7 +140,7 @@ app.post("/api/chop", asyncHandler(async (req, res) => {
   res.json(responseState(player, {
     item: result.item || {},
     gold: 0,
-    exp: result.revealed ? Math.floor(levels.dropXpBase) : 0,
+    exp: (levels.chopPlayerXp || 1) + (result.revealed ? (levels.revealPlayerXp || 3) : 0),
     log: result.log,
     revealed: result.revealed
   }));
@@ -195,11 +195,11 @@ app.post("/api/player/buy-xp", asyncHandler(async (req, res) => {
   const player = await loadPlayerFromRequest(req, res);
   if (!player) return;
 
-  const ok = playerEngine.buyXp(player);
+  const ok = playerEngine.buyTreeXp(player);
   await playerRepository.savePlayer(player);
   res.json(responseState(player, {
     ok,
-    log: ok ? `购买经验 +${levels.buyXpAmount}` : "灵石不足"
+    log: ok ? `购买树经验 +${levels.buyTreeXpAmount}` : "灵石不足"
   }));
 }));
 
