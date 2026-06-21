@@ -1,9 +1,21 @@
 const { pool } = require("./db");
 const playerEngine = require("../engine/player");
+const levels = require("../data/levels.json");
 const dataItems = require("../data/items.json");
 
-const QUALITY_TO_INT = { normal: 1, rare: 2, epic: 3, legendary: 4 };
-const INT_TO_QUALITY = { 1: "normal", 2: "rare", 3: "epic", 4: "legendary" };
+const QUALITY_TO_INT = {
+  normal: 1,
+  rare: 2,
+  epic: 3,
+  legendary: 4
+};
+
+const INT_TO_QUALITY = {
+  1: "normal",
+  2: "rare",
+  3: "epic",
+  4: "legendary"
+};
 
 function qualityLabel(quality) {
   return dataItems.qualities[quality] ? dataItems.qualities[quality].label : quality;
@@ -21,6 +33,7 @@ function fromDbItem(row) {
     name: row.name,
     quality,
     qualityLabel: qualityLabel(quality),
+    itemLevel: row.item_level || 1,
     attack: row.attack,
     defense: row.defense,
     hp: row.hp,
@@ -36,6 +49,9 @@ function applyPlayerRow(player, row) {
   player.level = row.level;
   player.xp = row.exp;
   player.nextXp = require("../engine/formula").getNextLevelXp(row.level);
+  player.treeLevel = row.tree_level || 1;
+  player.treeXp = row.tree_exp || 0;
+  player.treeNextXp = require("../engine/formula").getNextTreeLevelXp(player.treeLevel);
   player.coins = row.gold;
   player.floor = row.floor;
   player.chopTokens = row.chop_tokens;
@@ -54,13 +70,15 @@ async function createPlayer() {
   const player = playerEngine.createPlayer();
   const [result] = await pool.query(
     `INSERT INTO players
-      (level, exp, attack, defense, hp, gold, floor, power, chop_tokens, max_chop_tokens,
+      (level, exp, tree_level, tree_exp, attack, defense, hp, gold, floor, power, chop_tokens, max_chop_tokens,
        token_regen_seconds, last_token_at, charge, risk_break_at, floor_drop_count,
        floor_power_drop_used, last_drop_diff_pct, emotion_state)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       player.level,
       player.xp,
+      player.treeLevel,
+      player.treeXp,
       player.attack,
       player.defense,
       player.hp,
@@ -86,7 +104,9 @@ async function createPlayer() {
 
 async function loadPlayer(id) {
   const [rows] = await pool.query("SELECT * FROM players WHERE id = ?", [id]);
-  if (rows.length === 0) return null;
+  if (rows.length === 0) {
+    return null;
+  }
 
   const player = playerEngine.createPlayer();
   applyPlayerRow(player, rows[0]);
@@ -94,8 +114,11 @@ async function loadPlayer(id) {
   const [itemRows] = await pool.query("SELECT * FROM items WHERE player_id = ? ORDER BY id ASC", [id]);
   itemRows.forEach((row) => {
     const item = fromDbItem(row);
-    if (row.is_equipped) player.equipment[item.slot] = item;
-    else player.pendingLoot = item;
+    if (row.is_equipped) {
+      player.equipment[item.slot] = item;
+    } else {
+      player.pendingLoot = item;
+    }
   });
 
   return playerEngine.recalculateStats(player);
@@ -105,7 +128,7 @@ async function savePlayer(player) {
   playerEngine.recalculateStats(player);
   await pool.query(
     `UPDATE players SET
-      level = ?, exp = ?, attack = ?, defense = ?, hp = ?, gold = ?, floor = ?, power = ?,
+      level = ?, exp = ?, tree_level = ?, tree_exp = ?, attack = ?, defense = ?, hp = ?, gold = ?, floor = ?, power = ?,
       chop_tokens = ?, max_chop_tokens = ?, token_regen_seconds = ?, last_token_at = ?,
       charge = ?, risk_break_at = ?, floor_drop_count = ?, floor_power_drop_used = ?,
       last_drop_diff_pct = ?, emotion_state = ?
@@ -113,6 +136,8 @@ async function savePlayer(player) {
     [
       player.level,
       player.xp,
+      player.treeLevel,
+      player.treeXp,
       player.attack,
       player.defense,
       player.hp,
@@ -136,22 +161,27 @@ async function savePlayer(player) {
   await pool.query("DELETE FROM items WHERE player_id = ?", [player.id]);
   const itemsToSave = [];
   Object.values(player.equipment).forEach((item) => {
-    if (item) itemsToSave.push({ item, isEquipped: true });
+    if (item) {
+      itemsToSave.push({ item, isEquipped: true });
+    }
   });
-  if (player.pendingLoot) itemsToSave.push({ item: player.pendingLoot, isEquipped: false });
+  if (player.pendingLoot) {
+    itemsToSave.push({ item: player.pendingLoot, isEquipped: false });
+  }
 
   for (const entry of itemsToSave) {
     const item = entry.item;
     await pool.query(
       `INSERT INTO items
-        (player_id, slot, name, quality, attack, defense, hp, is_equipped,
+        (player_id, slot, name, quality, item_level, attack, defense, hp, is_equipped,
          power_band, is_legendary, is_overpowered, is_godlike)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         player.id,
         item.slot,
         item.name,
         toDbQuality(item.quality),
+        item.itemLevel || 1,
         item.attack,
         item.defense,
         item.hp,
@@ -166,7 +196,10 @@ async function savePlayer(player) {
 }
 
 function publicPlayer(player) {
-  return { id: player.id, ...playerEngine.toPublicPlayer(player) };
+  return {
+    id: player.id,
+    ...playerEngine.toPublicPlayer(player)
+  };
 }
 
 module.exports = {
